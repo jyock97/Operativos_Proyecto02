@@ -1,9 +1,43 @@
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <cstdlib>
 using namespace std;
+
+char data[100];
+int sock, useSock;  //file descriptor del socket
+int port = 5000;             //numero del puerto
+char ipAddr[16] = "127.0.0.1";
+char buffer[10];
+
+struct sockaddr_in servAddr; //direccion del servidor y el cliente
+
+
+void initClient(){
+
+    sock = socket(AF_INET, SOCK_STREAM,0);
+
+    servAddr.sin_family = AF_INET;
+    servAddr.sin_addr.s_addr = inet_addr(ipAddr);
+    servAddr.sin_port = htons(port);
+    connect(sock, (struct sockaddr*) &servAddr, sizeof(servAddr));
+    printf("Se realiza conexion\n");
+    useSock = sock;
+}
+
+void sedMessage(char *msg) {
+    write(useSock, msg, strlen(msg));
+}
+
 int main()
 {
+    initClient();
     //Configuracion de la pantalla
     sf::RenderWindow window(sf::VideoMode(300, 300), "Brick Breaker");
     window.setFramerateLimit(60);
@@ -75,6 +109,7 @@ int main()
             if(active[i]){
               boundingBox = blocks[i].getGlobalBounds();
               if (boundingBox.intersects(otherBox)){
+                sedMessage("asd");
                 blocks[i].setFillColor(sf::Color::Black);
                 active[i] = 0;
                 moveY*=-1;
