@@ -1,8 +1,12 @@
-C_FILES = main.c
+C_FILES = ricksmain.c
 LIBS = fuse
+DIR = prueba
 
-all:
-	gcc main.c `pkg-config --cflags --libs $(LIBS)` -o eje
+mkfs.bwfs:
+	gcc $(C_FILES) `pkg-config --cflags --libs $(LIBS)` -o mount.bwfs
 
-run:
-	./eje
+mount:
+	./mount.bwfs $(DIR) -o allow_other -o nosuid -d -s
+
+umount:
+	fusermount -u $(DIR)
