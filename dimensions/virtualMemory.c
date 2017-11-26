@@ -113,33 +113,3 @@ int setValue(int numPage, void *value, int cant){
   rewind(realFiles[place]);
   return 1;
 }
-
-int main(){
-  int a = getMem(7);
-  int b = getMem(5);
-  int c = getMem(5);
-  int c1 = getMem(5);
-  int c2 = getMem(5);
-  int c3 = getMem(5);
-  int c4 = getMem(5);
-  int c5 = getMem(5);
-  int c6 = getMem(5);
-  int c7 = getMem(5);
-  int c8 = getMem(5);
-  int c9 = getMem(5);
-  int d = setValue(a, "hola\n", 4);
-  int x = setValue(c9, "si", 2);
-  for(int i =0;i<fileNumber;i++){
-    printf("Virtual: %d\n", virtualPages[i]);
-  }
-  for(int i = 0;i<10;i++){
-    printf("Real %i\n", realPages[i]);
-  }
-  int d2 = setValue(a, "holi\n", 5);
-  char *temp = (char *)calloc(5,sizeof(char));
-  temp = getValue(a);
-  printf("%s\n", temp);
-
-  int d3 = setValue(c8, "holi\n", 5);
-  return 0;
-}

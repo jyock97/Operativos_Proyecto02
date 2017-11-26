@@ -1,3 +1,6 @@
+extern "C" {
+#include "virtualMemory.h"
+}
 #include <SFML/Graphics.hpp>
 #include <iostream>
 #include <stdio.h>
@@ -13,6 +16,7 @@
 #include <errno.h>
 #include <ctime>
 #include <fcntl.h>
+#include <pthread.h>
 
 using namespace std;
 
@@ -32,6 +36,7 @@ int retval;
 struct timeval timeOut;
 fd_set fdList;
 
+sf::RectangleShape wall(sf::Vector2f(25, 25));
 
 void initServer(){
     fcntl(sock, F_SETFL, fcntl(sock, F_GETFL) | O_NONBLOCK);
@@ -67,14 +72,35 @@ sf::Text setText(){
   return text;
 }
 
+void *receive(){
+  while(1){
+    if(read(useSock, buffer, sizeof(buffer)) > 0){
+      int i = (rand()%700)+50;
+      int j = (rand()%500)+50;
+      wall.setPosition(i, j);
+    }
+  }
+}
 
-int main()
-{
-    initServer();
+int main(){
+    pthread_t thread2;
+    wall.setFillColor(sf::Color::Red);
+    wall.setPosition(1000,1000);
     int tempPos[2];
     // bind the socket to a port
     //Configuracion de la pantalla
-    sf::RenderWindow window(sf::VideoMode(800, 600), "TRON");
+    int screenWidth = getMem(5);
+    int screenlength = getMem(5);
+    char *temp1 = (char*)calloc(5,sizeof(char));
+    char *temp2 = (char*)calloc(5,sizeof(char));
+    temp1 = "800";
+    temp2 = "600";
+    int temp=setValue(screenWidth,temp1,3);
+    temp=setValue(screenlength,temp2,3);
+    sf::RenderWindow window(sf::VideoMode(atoi((char*)getValue(screenWidth)), atoi((char*)getValue(screenlength))), "TRON");
+    //sf::RenderWindow window(sf::VideoMode(800, 600), "TRON");
+    initServer();
+    pthread_create(&thread2, NULL, receive, NULL);
     window.setFramerateLimit(60);
     font.loadFromFile("arial.ttf");
 
@@ -82,10 +108,6 @@ int main()
 
     int width = 5;
     //Obstaculo
-    sf::RectangleShape wall(sf::Vector2f(25, 25));
-    wall.setFillColor(sf::Color::Red);
-    wall.setPosition(1000,1000);
-    //crea los jugadores
     vector<sf::RectangleShape> player1(5000, sf::RectangleShape(sf::Vector2f(width, width)));
     player1[0].setPosition(300,300);
     vector<sf::RectangleShape> player2(5000, sf::RectangleShape(sf::Vector2f(width, width)));
@@ -106,14 +128,7 @@ int main()
     while (window.isOpen())
     {
         time_t now = time(0);
-        //if(now<first+1){
-          if(read(useSock, buffer, sizeof(buffer)) > 0){
-            int i = (rand()%700)+50;
-            int j = (rand()%500)+50;
-            wall.setPosition(i, j);
-          }
-          //first = now;
-        //}
+
         sf::Event event;
         while (window.pollEvent(event))
         {
