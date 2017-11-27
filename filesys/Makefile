@@ -10,3 +10,6 @@ mount:
 
 umount:
 	fusermount -u $(DIR)
+
+fsck:
+	stat -f $(DIR)
