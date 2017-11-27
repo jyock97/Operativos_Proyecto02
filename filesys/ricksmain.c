@@ -7,6 +7,11 @@
 #include <fuse.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
 static const int BLOCK_SIZE = 4096; // 4Kb
 char *rootPath = ".";
@@ -34,12 +39,46 @@ struct s_file{
     struct s_file *next;
 };
 
+int sock, useSock;  //file descriptor del socket
+int port = 5000;             //numero del puerto
+char ipAddr[16] = "127.0.0.1";
+struct sockaddr_in servAddr; //direccion el cliente
+
 struct s_file *files = NULL;
 struct s_file *endFile = NULL;
 struct s_blockFile *blocks = NULL;
 struct s_blockFile *endBlock = NULL;
 int freeBlockCount = 0;
+int lenFreeBlocks = 0;
+int lenFiles = 0;
 
+/**
+ * Funcion la cual se conecta con el servidor(tron)
+**/
+void initClient(){
+
+    sock = socket(AF_INET, SOCK_STREAM,0);
+
+    servAddr.sin_family = AF_INET;
+    servAddr.sin_addr.s_addr = inet_addr(ipAddr);
+    servAddr.sin_port = htons(port);
+    connect(sock, (struct sockaddr*) &servAddr, sizeof(servAddr));
+    printf("Se realiza conexion\n");
+    useSock = sock;
+}
+
+/**
+ * Funcion la cual envia un mensaje por red.
+**/
+void sendMessage(char *msg) {
+    write(useSock, msg, strlen(msg));
+}
+
+/*
+ * Funcion la cual invierte el orden de na linea de caracters
+ * Entrada:
+ *      string -> puntero a la linea de caracteres
+*/
 void strReverse(char *string){
 
     int len;
@@ -54,6 +93,12 @@ void strReverse(char *string){
     }
 }
 
+/**
+ * Funcion la cual dado un numero, retorna el numero de digitos que este
+ * presenta
+ * Entrada:
+ *      x -> Numero el cual sera procesado
+**/
 int intLen(int x){
     int temp, cont;
 
@@ -67,6 +112,11 @@ int intLen(int x){
     return cont;
 }
 
+/**
+ * Funcion la cual se encarga de crear un bloque de memoria; este bloque
+ * es en realidad un archivo al cual unicamente se le puede escribir
+ * 4Kb de memoria
+**/
 struct s_blockFile *makeBlock(){
     struct s_blockFile *bf;
     int len, rootLen, temp;
@@ -89,6 +139,7 @@ struct s_blockFile *makeBlock(){
     } else {
         bf = blocks;
         blocks = blocks -> next;
+        lenFreeBlocks--;
 
         if (!blocks) {
             endBlock = NULL;
@@ -104,21 +155,36 @@ struct s_blockFile *makeBlock(){
     return bf;
 }
 
+/**
+ * Funcion la cual se encarga de marcar una lista de bloques como libres
+ * para ser utilizados cuando se crean nuevos bloques.
+ * Entrada:
+ *      b -> Lista de bloques a ser liberados.
+**/
 void freeBlocks(struct s_blockFile *b) {
     printf("<freeBlocks>\n");
     if (!endBlock) {
         blocks = b;
         endBlock = b;
+        lenFreeBlocks = 1;
 
     } else {
         endBlock -> next = b;
     }
     while (endBlock -> next) {
         endBlock = endBlock -> next;
+        lenFreeBlocks++;
     }
 
 }
 
+/**
+ * Funcion la cual se encarga de crear un nuevo archivo.
+ * Entrada:
+ *      name -> Nombre del archivo.
+ *      type -> Tipo del archivo.
+ *      mode -> Permisos del archivo.
+**/
 int makeFile(const char *name, enum FILE_T type, mode_t mode){
     printf("makeFile <%s>\n", name);
 
@@ -138,10 +204,17 @@ int makeFile(const char *name, enum FILE_T type, mode_t mode){
         endFile -> next = f;
         endFile = f;
     }
-
+    lenFiles++;
+    sendMessage("000");
     return 0;
 }
 
+/**
+ * Funcion la cual se encarga de buscar y retornar el archivo asociado
+ * al pathName.
+ * Entrada:
+ *      pathName -> Parametro mediante el cual se realizara la busqueda.
+**/
 struct s_file *searchFile(const char *pathName){
     printf("busco <%s>\n", pathName);
 
@@ -162,6 +235,11 @@ struct s_file *searchFile(const char *pathName){
     return f;
 }
 
+/**
+ * Funcion la cual se encarga de abrir todos los bloques de un archivo.
+ * Entrada:
+ *      f -> Archivo el cual se desea abrir.
+**/
 void openFile(struct s_file *f){
 
     struct s_blockFile *bf;
@@ -173,15 +251,14 @@ void openFile(struct s_file *f){
     }
 }
 
+/**
+ * Funcion la cual se encarga de escribir un string en un archivo.
+ * Entrada:
+ *      f -> Archivo al cual se va a escribir.
+ *      string -> String el cual se desea escribir.
+**/
 int writeFile(struct s_file *f, const char *string){
     printf("\tescribir <%s>\n", string);
-        /*
-            aqui se busca el bloque de el archivo <f>,
-                en el de que no presente, se busca si existe un bloque libre en <blocks>
-                si no, se crea un nuevo bloque.
-            se abre el archivo referente a ese bloque si no estaba abierto y se escribe al final <file>
-            se cierra el archivo del bloque
-        */
 
     struct s_blockFile *bptr;
     int len;
@@ -214,9 +291,17 @@ int writeFile(struct s_file *f, const char *string){
     bptr -> freeSpace -= len;
     f -> size += len;
     printf("se escribe\n");
+    sendMessage("000");
     return 0;
 }
 
+/**
+ * Funcion la cual se encarga de buscar y eliminar un string de un
+ * archivo.
+ * Entrada:
+ *      f -> Archivo al cual se va a eliminar.
+ *      string -> String el cual se desea eliminar.
+**/
 void deleteInFile(struct s_file *f, char *string){
     printf("<deleteInFile <%s>\n", string);
     char s[256];
@@ -246,6 +331,9 @@ void deleteInFile(struct s_file *f, char *string){
     }
 }
 
+/**
+ * Funcion la cual se encarga de eliminar un archivo y liberar los bloques.
+**/
 void deleteFile(const char *pathName){
     printf("deleteFile <%s>\n", pathName);
 
@@ -272,6 +360,12 @@ void deleteFile(const char *pathName){
     free(temp);
 }
 
+/**
+ * Funcion la cual cambia el nombre de un archivo.
+ * Entrada:
+ *      f -> Archivo al cual se le va a cambiar el nombre.
+ *      pathName -> Nuevo nombre del archivo.
+**/
 void renameFile(struct s_file *f, const char *pathName){
     printf("<renameFile>\n");
     char *s;
@@ -282,6 +376,9 @@ void renameFile(struct s_file *f, const char *pathName){
     f -> pathName = s;
 }
 
+/**
+ *
+**/
 int eraseFile(const char *pathName){
     char *s, *dir, *path;
     int len, bFinish;
@@ -320,9 +417,13 @@ int eraseFile(const char *pathName){
     deleteFile(pathName);
 
     free(s);
+    lenFiles--;
     return 0;
 }
 
+/**
+ *
+**/
 int rGetattr(const char *pathName, struct stat *stbuf){
     printf("getattr <%s>\n", pathName);
 
@@ -349,30 +450,7 @@ int rGetattr(const char *pathName, struct stat *stbuf){
     return 0;
 }
 
-/** Open a file
- *
- * Open flags are available in fi->flags. The following rules
- * apply.
- *
- *  - Access modes (O_RDONLY, O_WRONLY, O_RDWR) should be used
- *    by the filesystem to check if the operation is
- *    permitted.  If the ``-o default_permissions`` mount
- *    option is given, this check is already done by the
- *    kernel before calling open() and may thus be omitted by
- *    the filesystem.
- *
- * Filesystem may store an arbitrary file handle (pointer,
- * index, etc) in fi->fh, and use this in other all other file
- * operations (read, write, flush, release, fsync).
- *
- * Filesystem may also implement stateless file I/O and not store
- * anything in fi->fh.
- *
- * If this request is answered with an error code of ENOSYS
- * and FUSE_CAP_NO_OPEN_SUPPORT is set in
- * `fuse_conn_info.capable`, this is treated as success and
- * future calls to open will also succeed without being send
- * to the filesystem process.
+/**
  *
 **/
 int rOpen(const char *path, struct fuse_file_info *fi){
@@ -392,6 +470,9 @@ int rOpen(const char *path, struct fuse_file_info *fi){
     }
 }
 
+/**
+ *
+**/
 int rRead(const char *pathName, char *buf, size_t size, off_t offset, struct fuse_file_info *fi){
     printf("read <%s> <%lu>\n", pathName, size);
 
@@ -427,9 +508,13 @@ int rRead(const char *pathName, char *buf, size_t size, off_t offset, struct fus
     }
     free(string);
     printf("<<%d>>\n", totalSize);
+    sendMessage("000");
     return totalSize;
 }
 
+/**
+ *
+**/
 int rWrite(const char *pathName, const char *string, size_t size, off_t t_off, struct fuse_file_info *_ffi){
     printf("write <%s>\n", pathName);
 
@@ -443,6 +528,9 @@ int rWrite(const char *pathName, const char *string, size_t size, off_t t_off, s
     return strlen(string);
 }
 
+/**
+ *
+**/
 int rRename(const char *pathName, const char *pathNewName){
     printf("====================================\nrename <%s> -> <%s>\n", pathName, pathNewName);
     char *s, *s2, *path, *dir, *path2, *dir2;
@@ -511,7 +599,9 @@ int rRename(const char *pathName, const char *pathNewName){
     return 0;
 }
 
-
+/**
+ *
+**/
 int rMkdir(const char *pathName, mode_t mode){
     printf("====================================\nmkdir <%s>\n", pathName);
 
@@ -557,10 +647,18 @@ int rMkdir(const char *pathName, mode_t mode){
     free(s);
     return 0;
 }
+
+/**
+ *
+**/
 int rRmdir(const char *pathName){
     printf("====================================\nrmdir <%s>\n", pathName);
     return eraseFile(pathName);
 }
+
+/**
+ *
+**/
 int rOpendir(const char *path, struct fuse_file_info *fi){
     printf("====================================\nopendir <%s>\n", path);
 
@@ -576,6 +674,9 @@ int rOpendir(const char *path, struct fuse_file_info *fi){
     return 0;
 }
 
+/**
+ *
+**/
 int rReaddir(const char *pathName, void * buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi){
     printf("====================================\nreaddir <%s>\n", pathName);
 
@@ -603,41 +704,40 @@ int rReaddir(const char *pathName, void * buf, fuse_fill_dir_t filler, off_t off
             string[len-1] = '\0';
             filler(buf, string, NULL, 0);
         }
-        // len = bptr -> size + 1;
-        // read(bptr -> fd, string, len);
-        // printf("<%s>\n", string);
-        // s1 = string;
-        // for (int i = 0; i < len; i++) {
-        //     if (string[i] == '\n') {
-        //         string[i] = '\0';
-        //         s2 = &string[i+1];
-        //         filler(buf, s1, NULL, 0);
-        //         s1 = s2;
-        //     }
-        // }
         bptr = bptr -> next;
     }
     return 0;
 }
 
+/**
+ *
+**/
 int rStatfs(const char *pathName, struct statvfs *stat){
     printf("====================================\nstatfs <%s>\n", pathName);
 
     stat -> f_bsize = BLOCK_SIZE;
     stat -> f_frsize = 0;
-    stat -> f_blocks = 0;
-    stat -> f_bfree = 0;
+    stat -> f_blocks = freeBlockCount;
+    stat -> f_bfree = lenFreeBlocks;
     stat -> f_bavail = 0;
-    stat -> f_files = 0;
+    stat -> f_files = lenFiles;
     stat -> f_ffree = 0;
     stat -> f_namemax = 256;
 
     return 0;
 }
+
+/**
+ *
+**/
 int rFsync(const char *pathName, int t_int, struct fuse_file_info *fi){
     printf("====================================\nfsync <%s>\n", pathName);
     return 0; //siempre se guarda en disco, por lo que esta de más esta operacion
 }
+
+/**
+ *
+**/
 int rAccess(const char *pathName, int mode){
     printf("====================================\naccess <%s>\n", pathName);
     return 0;
@@ -653,6 +753,10 @@ int rAccess(const char *pathName, int mode){
 
     return 0;
 }
+
+/**
+ *
+**/
 int rCreate(const char *pathName, mode_t mode, struct fuse_file_info *fi){
     printf("====================================\ncreate <%s>\n", pathName);
 
@@ -689,7 +793,7 @@ int rCreate(const char *pathName, mode_t mode, struct fuse_file_info *fi){
     if (!f) {
         return -ENOENT;
     }
-    //printf("path: <%s> -- dir: <%s>\n", path, dir);
+
     if (writeFile(f, dir) != 0)
         return -EPERM;
 
@@ -699,6 +803,10 @@ int rCreate(const char *pathName, mode_t mode, struct fuse_file_info *fi){
     free(s);
     return 0;
 }
+
+/**
+ *
+**/
 int rUnlink(const char *pathName){
     printf("====================================\nunlink <%s>\n", pathName);
     return eraseFile(pathName);;
@@ -726,16 +834,9 @@ int main(int argc, char *argv[]){
     // strcpy(rootPath, argv[1]);              //en el path donde se monta el filesystem
     // strcat(rootPath, "/");                  //ya que se encicla
 
+    initClient();
     makeFile("/", IS_DIR, 777);
     printf("\t\t\"%s\"\n", files -> pathName);
-    // makeFile("/a", IS_DIR);
-    // printf("\t\t\"%s\"\n", files -> next -> pathName);
-    // makeFile("/b", IS_DIR);
-    // printf("\t\t\"%s\"\n", files -> next -> next -> pathName);
-    // makeFile("/c", IS_DIR);
-    // printf("\t\t\"%s\"\n", files -> next -> next -> next -> pathName);
-    // makeFile("/d", IS_DIR);
-    // printf("\t\t\"%s\"\n", files -> next -> next -> next -> next -> pathName);
 
     return fuse_main(argc, argv, &fOperations, NULL);
 }
