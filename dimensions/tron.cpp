@@ -88,8 +88,16 @@ void *receive(void*){
 
 //Funcion con logica del juego
 int main(){
-    pthread_t thread2;//hilo que va a recibir los mensajes
-    wall.setFillColor(sf::Color::Red);//obstaculo
+    char opt;
+    cout << "Desea ser server?[y/n]\n";
+    cin >> opt;
+    if(opt == 'y'){
+      pthread_t thread2;//hilo que va a recibir los mensajes
+      initServer();
+      pthread_create(&thread2, NULL, receive, NULL);//hilo que recibe los mensajes
+      wall.setFillColor(sf::Color::Red);//obstaculo
+
+    }
     wall.setPosition(1000,1000);
     int tempPos[2];
     // bind the socket to a port
@@ -104,8 +112,6 @@ int main(){
     temp=setValue(screenlength,temp2,3);
     sf::RenderWindow window(sf::VideoMode(atoi((char*)getValue(screenWidth)), atoi((char*)getValue(screenlength))), "TRON");
     //sf::RenderWindow window(sf::VideoMode(800, 600), "TRON");
-    initServer();
-    pthread_create(&thread2, NULL, receive, NULL);//hilo que recibe los mensajes
     window.setFramerateLimit(60);//60 fps maximo
     font.loadFromFile("arial.ttf");//fuente de letra
 
