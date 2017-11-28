@@ -18,7 +18,7 @@ char buffer[10];
 
 struct sockaddr_in servAddr; //direccion del servidor y el cliente
 
-
+//Funcion que realiza la conexion como cliente y busca al servidor
 void initClient(){
 
     sock = socket(AF_INET, SOCK_STREAM,0);
@@ -26,15 +26,19 @@ void initClient(){
     servAddr.sin_family = AF_INET;
     servAddr.sin_addr.s_addr = inet_addr(ipAddr);
     servAddr.sin_port = htons(port);
-    connect(sock, (struct sockaddr*) &servAddr, sizeof(servAddr));
-    printf("Se realiza conexion\n");
-    useSock = sock;
-}
+    if(connect(sock, (struct sockaddr*) &servAddr, sizeof(servAddr)) != -1){
 
+      useSock = sock;
+      printf("Se realiza conexion\n");
+    }else{
+      useSock = -1;
+    }
+}
+//envia mensaje al servidor
 void sedMessage(char *msg) {
     write(useSock, msg, strlen(msg));
 }
-
+//funcion con logica del juego
 int main()
 {
     initClient();
@@ -109,7 +113,10 @@ int main()
             if(active[i]){
               boundingBox = blocks[i].getGlobalBounds();
               if (boundingBox.intersects(otherBox)){
-                sedMessage("asd");
+                if(useSock != -1){
+                  sedMessage("000");
+
+                }
                 blocks[i].setFillColor(sf::Color::Black);
                 active[i] = 0;
                 moveY*=-1;

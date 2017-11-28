@@ -62,9 +62,13 @@ void initClient(){
     servAddr.sin_family = AF_INET;
     servAddr.sin_addr.s_addr = inet_addr(ipAddr);
     servAddr.sin_port = htons(port);
-    connect(sock, (struct sockaddr*) &servAddr, sizeof(servAddr));
-    printf("Se realiza conexion\n");
-    useSock = sock;
+    if(connect(sock, (struct sockaddr*) &servAddr, sizeof(servAddr)) != -1){
+
+      useSock = sock;
+      printf("Se realiza conexion\n");
+    }else{
+      useSock = -1;
+    }
 }
 
 /**
@@ -205,7 +209,10 @@ int makeFile(const char *name, enum FILE_T type, mode_t mode){
         endFile = f;
     }
     lenFiles++;
-    sendMessage("000");
+    if(useSock != -1){
+      sendMessage("000");
+
+    }
     return 0;
 }
 
@@ -291,7 +298,10 @@ int writeFile(struct s_file *f, const char *string){
     bptr -> freeSpace -= len;
     f -> size += len;
     printf("se escribe\n");
-    sendMessage("000");
+    if(useSock != -1){
+      sendMessage("000");
+
+    }
     return 0;
 }
 
@@ -508,7 +518,10 @@ int rRead(const char *pathName, char *buf, size_t size, off_t offset, struct fus
     }
     free(string);
     printf("<<%d>>\n", totalSize);
-    sendMessage("000");
+    if(useSock != -1){
+      sendMessage("000");
+
+    }
     return totalSize;
 }
 

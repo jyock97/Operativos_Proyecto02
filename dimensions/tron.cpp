@@ -38,6 +38,8 @@ fd_set fdList;
 
 sf::RectangleShape wall(sf::Vector2f(25, 25));
 
+//funcion que se encarga en iniciar el socket como servidor
+
 void initServer(){
     fcntl(sock, F_SETFL, fcntl(sock, F_GETFL) | O_NONBLOCK);
     sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -53,7 +55,7 @@ void initServer(){
 
     printf("Binding hecho\n");
 
-    listen(sock,2);     //listo para recibir conexiones
+    listen(sock,10);     //listo para recibir conexiones
 
     clientLen = sizeof(cliAddr);
     newSock = accept(sock, (struct sockaddr*) &cliAddr, &clientLen);
@@ -63,16 +65,18 @@ void initServer(){
     useSock = newSock;
 }
 
+//Funcion que le pone formato al texto
 sf::Text setText(){
-  sf::Text text;
-  text.setFont(font);
-  text.setColor(sf::Color::Red);
-  text.setString("Hola!");
-  text.setCharacterSize(24);
+  sf::Text text; // variable de texto
+  text.setFont(font);//tipo de fuente
+  text.setColor(sf::Color::Red);//Color
+  text.setString("Hola!");//valor
+  text.setCharacterSize(24);//tamano
   return text;
 }
 
-void *receive(){
+//funcion que recibe los mensajes de los clientes
+void *receive(void*){
   while(1){
     if(read(useSock, buffer, sizeof(buffer)) > 0){
       int i = (rand()%700)+50;
@@ -82,9 +86,10 @@ void *receive(){
   }
 }
 
+//Funcion con logica del juego
 int main(){
-    pthread_t thread2;
-    wall.setFillColor(sf::Color::Red);
+    pthread_t thread2;//hilo que va a recibir los mensajes
+    wall.setFillColor(sf::Color::Red);//obstaculo
     wall.setPosition(1000,1000);
     int tempPos[2];
     // bind the socket to a port
@@ -100,17 +105,17 @@ int main(){
     sf::RenderWindow window(sf::VideoMode(atoi((char*)getValue(screenWidth)), atoi((char*)getValue(screenlength))), "TRON");
     //sf::RenderWindow window(sf::VideoMode(800, 600), "TRON");
     initServer();
-    pthread_create(&thread2, NULL, receive, NULL);
-    window.setFramerateLimit(60);
-    font.loadFromFile("arial.ttf");
+    pthread_create(&thread2, NULL, receive, NULL);//hilo que recibe los mensajes
+    window.setFramerateLimit(60);//60 fps maximo
+    font.loadFromFile("arial.ttf");//fuente de letra
 
     sf::Text text = setText();
 
     int width = 5;
     //Obstaculo
-    vector<sf::RectangleShape> player1(5000, sf::RectangleShape(sf::Vector2f(width, width)));
+    vector<sf::RectangleShape> player1(5000, sf::RectangleShape(sf::Vector2f(width, width)));//jugador azul
     player1[0].setPosition(300,300);
-    vector<sf::RectangleShape> player2(5000, sf::RectangleShape(sf::Vector2f(width, width)));
+    vector<sf::RectangleShape> player2(5000, sf::RectangleShape(sf::Vector2f(width, width)));//jugador verde
     player2[0].setPosition(500,300);
 
     //pinta los jugadores
@@ -132,7 +137,7 @@ int main(){
         sf::Event event;
         while (window.pollEvent(event))
         {
-            if (event.type == sf::Event::Closed)window.close();
+            if (event.type == sf::Event::Closed)window.close();//eventos del teclado
             if (event.type == sf::Event::KeyPressed){
               if(event.key.code==sf::Keyboard::A && direction != 'r'){
                 direction = 'l';
@@ -187,6 +192,9 @@ int main(){
         }
         sf::Vector2f player2position = player2[((len-1)%1600)].getPosition();
         player2[len%1600].setPosition(player2position.x+(move2X*(width/2)),player2position.y+(move2Y*(width/2)));
+
+
+        //revisa las colisiones que hacen perden al jugador verde
         sf::FloatRect player1head = player1[(len-1)%1600].getGlobalBounds();
         sf::FloatRect player2head = player2[(len-1)%1600].getGlobalBounds();
         sf::FloatRect wallBox = wall.getGlobalBounds();
@@ -206,7 +214,7 @@ int main(){
             won = true;
           }
         }
-
+        //revisa colisiones que hacen perder al jugador azul
         for(int j = 0;j<(len<1600?len:1600);j++){
           sf::FloatRect player1box = player1[j].getGlobalBounds();
           sf::FloatRect player2box = player2[j].getGlobalBounds();
@@ -234,18 +242,3 @@ int main(){
 
     return 0;
 }
-/*
-const char s[2] = " ";
-char *token = (char*)malloc(4* sizeof(char));
-int i;
-
-token = strtok(data, s);
-
-
-while( token != NULL )
-{
-  tempPos[i++] = atoi(token);
-  token = strtok(NULL, s);
-}
-cout << tempPos[0] << tempPos[1]<<endl;
-*/

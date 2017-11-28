@@ -4,10 +4,9 @@ int fileNumber = 0, nextPage = 0;
 int realPages[10], virtualPages[10000];
 FILE *realFiles[10];
 
+//funcion que pide mememoria para la variable, pide size bytes
 int getMem(int size){
-
   char intNumber[12];
-
   sprintf(intNumber, "%d", fileNumber);
 
   FILE *new;
@@ -21,7 +20,7 @@ int getMem(int size){
   fclose(new);
   sprintf(intNumber, "%d", fileNumber);
   new = fopen(intNumber, "a+");
-  if(fileNumber<10){
+  if(fileNumber<10){//Si son las primeras 10 paginas, las guarda en real, o sino, solo en virtual
     realPages[fileNumber] = fileNumber;
     realFiles[fileNumber] = new;
   }
@@ -30,6 +29,7 @@ int getMem(int size){
   return (fileNumber-1);
 }
 
+//Busca si una pagina se encuentra en memoria real
 int search(int file){
   for(int i = 0;i<10;i++){
     if(realPages[i] == file){
@@ -39,6 +39,7 @@ int search(int file){
   return -1;
 }
 
+//Busca el valor que tiene asignado la variable pedida
 void *getValue(int numPage){
   int numSize;
   char *value = (char*)calloc(4096, sizeof(char));
@@ -74,7 +75,8 @@ void *getValue(int numPage){
   rewind(realFiles[place]);
   return token;
 }
-
+//funcion que setea un valor a una variable asignada, las entradas:
+//la pagina a cual escribirle, el valor a escribir y cuantos bytes escribe
 int setValue(int numPage, void *value, int cant){
   int place = search(numPage);
   int numSize;
